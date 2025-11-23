@@ -49,4 +49,6 @@ dependencies:
       - transformers==4.28.0
       - huggingface_hub==0.25.2
       - wandb==0.18.3
+      - h5py
+      - hdf5plugin
 prefix: /scratch/m000073/shuang/miniforge3/envs/uva
