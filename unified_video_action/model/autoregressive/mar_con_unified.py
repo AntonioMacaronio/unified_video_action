@@ -885,7 +885,7 @@ class MAR(nn.Module):
         )
 
         # ========= Predict Proprioception =========
-        if self.predict_proprioception:
+        if self.predict_proprioception: # false for uva_pusht.yaml
             if self.task_name == "umi":
                 gt_properception = proprioception_input[
                     "robot0_eef_rot_axis_angle_wrt_start_pred"
@@ -920,7 +920,7 @@ class MAR(nn.Module):
                     text_latents=text_latents,
                 )
         else:
-            if self.predict_wrist_img:
+            if self.predict_wrist_img: # false for uva_pusht.yaml
                 loss, video_loss, act_loss = self.forward_loss(
                     z=z,
                     target=gt_latents,
@@ -930,7 +930,7 @@ class MAR(nn.Module):
                     gt_wrist_latents=gt_wrist_latents,
                     text_latents=text_latents,
                 )
-            else:
+            else: # we go here for uva_pusht.yaml
                 loss, video_loss, act_loss = self.forward_loss(
                     z=z,
                     target=gt_latents,

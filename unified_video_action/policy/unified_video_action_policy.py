@@ -361,6 +361,10 @@ class UnifiedVideoActionPolicy(BaseImagePolicy):
 
     def compute_loss(self, batch, **kwargs):
         B, T, C, H, W = batch["obs"]["image"].size()
+        # B = batch size (32 from config)
+        # T = 32 (horizon from pusht.yaml)
+        # C = 3 (RGB channels)
+        # H, W = 96x96 (from dataset, resized to 224x224 later)
 
         text_latents = None
         if self.language_emb_model == "clip":
@@ -395,18 +399,29 @@ class UnifiedVideoActionPolicy(BaseImagePolicy):
         if self.use_history_action:
             batch = dict_apply(batch, lambda x: x[:, 1:])
 
+        # images are resized to 256x256, rearranged to (B, C, T, 256, 256), normalized to [-1, 1] range
         x, proprioception_input, _ = process_data(
             batch, task_name=self.task_name, **self.kwargs
         )
+
+        # out of T frames, we take the first half as condition, and the second half as input
+        # generate latents with frozen vae model (torch.no_grad())
+        # c = latent of first T/2 frames
+        # z = latent of second T/2 frames
+        # x = second T/2 frames as original images
+        # each of these have shape (B, T=4, C_latent=16, H=16, W=16), which means we have 256 16x16 patches, each patch = latent 
         x, z, c, _, proprioception_input = get_vae_latent(
             x, self.vae_model, eval=False, proprioception_input=proprioception_input
         )
+
         history_trajectory, trajectory = get_trajectory(
             nactions, T, self.shift_action, use_history_action=self.use_history_action
         )
 
-        selected_mode = random.choice(self.task_modes)
+        selected_mode = random.choice(self.task_modes) # video_model for uva_pusht.yaml
 
+        # this is the inside mar_con_unified.py, where loss is calculated!
+        # mar = masked autoregressive model
         loss, video_loss, act_loss = self.model(
             z,
             c,
