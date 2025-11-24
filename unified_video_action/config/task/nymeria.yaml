@@ -1,0 +1,29 @@
+name: nymeria
+task_type: single_dataset
+task_modes: []
+
+shape_meta:
+  image_resolution: 96  # Resize from 1408x1408 to 96x96 for efficiency
+  action:
+    shape:
+    - 1  # Dummy action dimension (video-only training)
+  obs:
+    image:
+      shape:
+      - 3
+      - 96
+      - 96
+      type: rgb
+
+dataset:
+  _target_: unified_video_action.dataset.nymeria_dataset.NymeriaUVADataset
+  data_dir: /nfs/antzhan/nymeria/hdf5  # Update this path to your nymeria data location
+  image_resolution: 96
+  sequence_length: 150  # Nymeria sequences are ~150 frames
+  val_ratio: 0.02
+  seed: 42
+  data_aug: true
+  file_pattern: "*.h5"
+
+# No env_runner needed for video-only training (no policy evaluation)
+env_runner: null
