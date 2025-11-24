@@ -33,7 +33,7 @@ class NymeriaUVADataset(BaseImageDataset):
     def __init__(
         self,
         data_dir,
-        image_resolution=96,
+        image_resolution=224,
         sequence_length=150,
         val_ratio=0.02,
         seed=42,
@@ -119,26 +119,19 @@ class NymeriaUVADataset(BaseImageDataset):
         return len(self.active_indices)
 
     def _process_image(self, image_np):
-        """
-        Process a single image: resize and optionally augment.
-
+        """Process a single image: resize and optionally augment.
         Args:
             image_np: numpy array of shape (3, 1408, 1408) with values in [0, 255]
         Returns:
             torch tensor of shape (3, image_resolution, image_resolution) in [0, 1]
         """
-        # Convert to torch tensor and normalize to [0, 1]
-        image_tensor = torch.from_numpy(image_np).float() / 255.0
-
-        # Resize to target resolution
+        # Convert to torch tensor and normalize to [0, 1] and resize to target resolution
+        image_tensor = torch.from_numpy(image_np) / np.float32(255)
         image_tensor = self.resize_transform(image_tensor)
-
         return image_tensor
 
     def _apply_video_augmentation(self, video_tensor):
-        """
-        Apply consistent augmentation across all frames in the video.
-
+        """Apply consistent augmentation across all frames in the video.
         Args:
             video_tensor: torch tensor of shape (T, 3, H, W)
         Returns:
@@ -168,9 +161,7 @@ class NymeriaUVADataset(BaseImageDataset):
         return augmented_frames
 
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        """
-        Get a single training example.
-
+        """Get a single training example.
         Returns:
             dict with:
                 obs: dict with:
