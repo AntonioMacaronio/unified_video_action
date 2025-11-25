@@ -10,8 +10,8 @@ dependencies:
   - pytorch-cuda=12.1
   - torchvision=0.16.0
   - scipy=1.11
-  - numba=0.60.0=py39h0320e7d_0
-  - numpy=1.26.4=py39h474f0d3_0
+  - numba=0.60.0
+  - numpy=1.26.4
   - pandas=2.1
   - ipykernel=6.23
   - matplotlib=3.7
