@@ -399,7 +399,7 @@ class UnifiedVideoActionPolicy(BaseImagePolicy):
         if self.use_history_action:
             batch = dict_apply(batch, lambda x: x[:, 1:])
 
-        # images are resized to 256x256, rearranged to (B, C, T, 256, 256), normalized to [-1, 1] range
+        # images are resized to 256x256, rearranged and temporally selected to (B=32, C=3, T=8, 256, 256), normalized to [-1, 1] range
         x, proprioception_input, _ = process_data(
             batch, task_name=self.task_name, **self.kwargs
         )

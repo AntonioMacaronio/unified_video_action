@@ -803,7 +803,7 @@ class MAR(nn.Module):
         imgs = rearrange(
             imgs, "b t c h w -> (b t) c h w"
         )
-        x = self.patchify(imgs)
+        x = self.patchify(imgs) # this x is the z from UnifiedVideoActionPolicy.compute_loss() function, which latents of second T/2 frames
         x = rearrange(x, "(b t) seq_len c -> b t seq_len c", b=B)
 
         cond = rearrange(cond, "b t c h w -> (b t) c h w")
@@ -864,7 +864,7 @@ class MAR(nn.Module):
         mask = self.random_masking(x, orders)  # [1, 4, 256]
 
         # ========= MAE Encoder =========
-        x = self.forward_mae_encoder(
+        x = self.forward_mae_encoder( # this x is the z from UnifiedVideoActionPolicy.compute_loss() function, which latents of second T/2 frames
             x,
             mask,
             cond,
