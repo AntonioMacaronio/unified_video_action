@@ -247,6 +247,14 @@ class TrainUnifiedVideoActionWorkspace(BaseWorkspace):
                 mininterval=cfg.training.tqdm_interval_sec,
             ) as tepoch:
                 for batch_idx, batch in enumerate(tepoch):
+                    # batch is a dictionary with keys: 'obs', 'action', 'language', it has the following structure:
+                    # {
+                    #     'obs': {
+                    #         'image': (B, T, C, H, W)
+                    #     },
+                    #     'action': (B, T, 1) # dummy actions (all zeros)
+                    #     'language': (B, T, L) # language goal (will add this later)
+                    # }
 
                     # device transfer
                     batch = dict_apply(batch, lambda x: x.to(device, non_blocking=True))
