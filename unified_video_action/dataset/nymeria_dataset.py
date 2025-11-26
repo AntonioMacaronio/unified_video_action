@@ -10,6 +10,8 @@ import torch
 import numpy as np
 import copy
 from pathlib import Path
+import os
+import pickle
 
 # Import from the pip-installed nymeria package
 from nymeria import NymeriaDataset, NymeriaTrainingSeq, BatchedNymeriaTrainingSeq
@@ -65,30 +67,6 @@ class NymeriaUVADataset(BaseImageDataset):
 
         # Load the nymeria dataset
         self.nymeria_dataset = NymeriaDataset(data_dir, file_pattern=file_pattern)
-
-        # Filter out corrupted files with negative or zero num_frames
-        print("Filtering out corrupted HDF5 files...")
-        valid_file_indices = []
-        corrupted_count = 0
-        for i in range(len(self.nymeria_dataset)):
-            try:
-                seq = self.nymeria_dataset[i]
-                if seq.num_frames > 0:
-                    valid_file_indices.append(i)
-                else:
-                    corrupted_count += 1
-                    print(f"  Skipping corrupted file: {seq.hdf5_path.name} (num_frames={seq.num_frames})")
-            except Exception as e:
-                corrupted_count += 1
-                print(f"  Skipping unreadable file at index {i}: {e}")
-        if corrupted_count > 0:
-            print(f"Filtered out {corrupted_count} corrupted files")
-            print(f"Using {len(valid_file_indices)} valid files for training")
-
-        # Update the dataset to only include valid files
-        self.nymeria_dataset.hdf5_paths = [
-            self.nymeria_dataset.hdf5_paths[i] for i in valid_file_indices
-        ]
 
         # Create train/val split
         np.random.seed(seed)
