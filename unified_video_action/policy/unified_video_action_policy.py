@@ -360,11 +360,12 @@ class UnifiedVideoActionPolicy(BaseImagePolicy):
         return optimizer
 
     def compute_loss(self, batch, **kwargs):
+        breakpoint()
         B, T, C, H, W = batch["obs"]["image"].size()
         # B = batch size (32 from config)
         # T = 32 (horizon from pusht.yaml)
         # C = 3 (RGB channels)
-        # H, W = 96x96 (from dataset, resized to 224x224 later)
+        # H, W = 256x256 (from dataset, resized to 224x224 later)
 
         text_latents = None
         if self.language_emb_model == "clip":
