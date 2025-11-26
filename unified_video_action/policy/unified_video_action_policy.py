@@ -360,7 +360,6 @@ class UnifiedVideoActionPolicy(BaseImagePolicy):
         return optimizer
 
     def compute_loss(self, batch, **kwargs):
-        breakpoint()
         B, T, C, H, W = batch["obs"]["image"].size()
         # B = batch size (32 from config)
         # T = 32 (horizon from pusht.yaml)
