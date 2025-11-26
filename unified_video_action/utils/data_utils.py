@@ -161,7 +161,9 @@ def select_frames(x, T, eval=False, select_timesteps=4, different_history_freq=F
 def normalize_past_action(normalizer, normalizer_type, actions):
     if normalizer_type == "all":
         history_nactions = normalizer["action"].normalize(actions)
-    elif normalizer_type == "none":
+    elif normalizer_type == "none" or normalizer_type is None:
+        history_nactions = actions
+    else:
         history_nactions = actions
     return history_nactions
 
@@ -169,7 +171,9 @@ def normalize_past_action(normalizer, normalizer_type, actions):
 def unnormalize_future_action(normalizer, normalizer_type, actions):
     if normalizer_type == "all":
         future_nactions = normalizer["action"].unnormalize(actions)
-    elif normalizer_type == "none":
+    elif normalizer_type == "none" or normalizer_type is None:
+        future_nactions = actions
+    else:
         future_nactions = actions
     return future_nactions
 
@@ -177,7 +181,9 @@ def unnormalize_future_action(normalizer, normalizer_type, actions):
 def normalize_action(normalizer, normalizer_type, actions):
     if normalizer_type == "all":
         nactions = normalizer["action"].normalize(actions)
-    elif normalizer_type == "none":
+    elif normalizer_type == "none" or normalizer_type is None:
+        nactions = actions
+    else:
         nactions = actions
     return nactions
 
