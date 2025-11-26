@@ -12,7 +12,7 @@ import copy
 from pathlib import Path
 
 # Import from the pip-installed nymeria package
-from nymeria import NymeriaDataset, BatchedNymeriaTrainingSeq
+from nymeria import NymeriaDataset, NymeriaTrainingSeq, BatchedNymeriaTrainingSeq
 
 from unified_video_action.common.pytorch_util import dict_apply
 from unified_video_action.model.common.normalizer import LinearNormalizer
@@ -66,6 +66,30 @@ class NymeriaUVADataset(BaseImageDataset):
         # Load the nymeria dataset
         self.nymeria_dataset = NymeriaDataset(data_dir, file_pattern=file_pattern)
 
+        # Filter out corrupted files with negative or zero num_frames
+        print("Filtering out corrupted HDF5 files...")
+        valid_file_indices = []
+        corrupted_count = 0
+        for i in range(len(self.nymeria_dataset)):
+            try:
+                seq = self.nymeria_dataset[i]
+                if seq.num_frames > 0:
+                    valid_file_indices.append(i)
+                else:
+                    corrupted_count += 1
+                    print(f"  Skipping corrupted file: {seq.hdf5_path.name} (num_frames={seq.num_frames})")
+            except Exception as e:
+                corrupted_count += 1
+                print(f"  Skipping unreadable file at index {i}: {e}")
+        if corrupted_count > 0:
+            print(f"Filtered out {corrupted_count} corrupted files")
+            print(f"Using {len(valid_file_indices)} valid files for training")
+
+        # Update the dataset to only include valid files
+        self.nymeria_dataset.hdf5_paths = [
+            self.nymeria_dataset.hdf5_paths[i] for i in valid_file_indices
+        ]
+
         # Create train/val split
         np.random.seed(seed)
         n_episodes = len(self.nymeria_dataset)
@@ -78,7 +102,7 @@ class NymeriaUVADataset(BaseImageDataset):
 
         # Start with train indices
         self.is_train = True
-        self.active_indices = self.train_indices
+        self.active_indices = self.train_indices # NOTE: active_indices is the indices of the sequences that are currently being used. =
 
         # Image transforms
         self.resize_transform = transforms.Resize(
@@ -175,16 +199,9 @@ class NymeriaUVADataset(BaseImageDataset):
         # Map idx to actual dataset index
         dataset_idx = self.active_indices[idx]
 
-        # Load the sequence from nymeria dataset
-        seq = self.nymeria_dataset[dataset_idx]
-
-        # Pad or trim to desired sequence length
-        if len(seq) > self.sequence_length:
-            # Trim to sequence_length
-            seq = seq.get_frame_slice(0, self.sequence_length)
-        elif len(seq) < self.sequence_length:
-            # Pad with zeros
-            seq, _ = seq.pad_or_trim_sequence(self.sequence_length)
+        # Load the sequence from nymeria dataset and pad or trim to desired sequence length
+        seq: NymeriaTrainingSeq = self.nymeria_dataset[dataset_idx]
+        seq, _ = seq.pad_or_trim_sequence(self.sequence_length)
 
         # Process all frames
         # egoview_RGB shape: (T, 3, 1408, 1408) uint8 [0, 255]
@@ -192,7 +209,6 @@ class NymeriaUVADataset(BaseImageDataset):
         for t in range(self.sequence_length):
             frame = self._process_image(seq.egoview_RGB[t])  # (3, H, W)
             processed_frames.append(frame)
-
         video_tensor = torch.stack(processed_frames)  # (T, 3, H, W)
 
         # Apply augmentation if enabled
