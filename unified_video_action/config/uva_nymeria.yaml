@@ -36,8 +36,8 @@ training:
   tqdm_interval_sec: 1.0
   use_ema: true
   val_every: 5  # Validate every 5 epochs (less frequent due to longer sequences)
-  #mixed_precision: 'bf16'  # Changed to bf16 for better stability with DeepSpeed
-  #deepspeed_config: unified_video_action/config/zero3.json
+  mixed_precision: 'bf16'  # Changed to bf16 for better stability with DeepSpeed
+  deepspeed_config: unified_video_action/config/zero3.json
 
 checkpoint:
   save_last_ckpt: true
