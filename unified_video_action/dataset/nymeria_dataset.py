@@ -39,6 +39,8 @@ class NymeriaUVADataset(BaseImageDataset):
         seed=42,
         data_aug=False,
         file_pattern="*.h5",
+        language_emb_model=None,
+        normalizer_type=None,
     ):
         """
         Args:
@@ -49,6 +51,8 @@ class NymeriaUVADataset(BaseImageDataset):
             seed: Random seed for train/val split
             data_aug: Whether to apply data augmentation
             file_pattern: Glob pattern for HDF5 files (default: "*.h5")
+            language_emb_model: Language embedding model (not used for video-only training)
+            normalizer_type: Action normalizer type (not used for video-only training)
         """
         super().__init__()
 
