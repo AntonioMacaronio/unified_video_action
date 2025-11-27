@@ -153,20 +153,6 @@ class TrainUnifiedVideoActionWorkspace(BaseWorkspace):
                 normalizer = dataset.get_normalizer()
                 pickle.dump(normalizer, open(normalizer_path, "wb"))
 
-        # if (
-        #     "deepspeed_config" not in cfg.training
-        #     or cfg.training.deepspeed_config is None
-        # ):
-        accelerator.wait_for_everyone()
-
-        # load normalizer on all processes
-        if cfg.task.task_type == "single_dataset":
-            normalizer = pickle.load(open(normalizer_path, "rb"))
-
-            self.model.set_normalizer(normalizer)
-            if cfg.training.use_ema:
-                self.ema_model.set_normalizer(normalizer)
-        
 
         # configure lr scheduler
         self.lr_scheduler = get_scheduler(
@@ -223,6 +209,30 @@ class TrainUnifiedVideoActionWorkspace(BaseWorkspace):
 
         if self.ema_model is not None:
             self.ema_model.to(device)
+
+        # Load normalizer after accelerator.prepare() to avoid DeepSpeed deadlock
+        if cfg.task.task_type == "single_dataset":
+            # Wait for main process to save normalizer with retry logic for DeepSpeed
+            import time
+            normalizer_path = os.path.join(self.output_dir, "normalizer.pkl")
+            if not accelerator.is_main_process:
+                # Retry until file is available (max 60 seconds)
+                max_retries = 60
+                for i in range(max_retries):
+                    if os.path.exists(normalizer_path):
+                        break
+                    time.sleep(1)
+                else:
+                    raise FileNotFoundError(f"Normalizer file not created after {max_retries} seconds: {normalizer_path}")
+
+            accelerator.wait_for_everyone()  # Safe to call after prepare()
+            normalizer = pickle.load(open(normalizer_path, "rb"))
+
+            # Set normalizer on the unwrapped model
+            unwrapped_model = accelerator.unwrap_model(self.model)
+            unwrapped_model.set_normalizer(normalizer)
+            if cfg.training.use_ema:
+                self.ema_model.set_normalizer(normalizer)
 
         if cfg.training.debug:
             cfg.training.num_epochs = 2
