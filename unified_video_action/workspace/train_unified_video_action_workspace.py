@@ -153,11 +153,11 @@ class TrainUnifiedVideoActionWorkspace(BaseWorkspace):
                 normalizer = dataset.get_normalizer()
                 pickle.dump(normalizer, open(normalizer_path, "wb"))
 
-        if (
-            "deepspeed_config" not in cfg.training
-            or cfg.training.deepspeed_config is None
-        ):
-            accelerator.wait_for_everyone()
+        # if (
+        #     "deepspeed_config" not in cfg.training
+        #     or cfg.training.deepspeed_config is None
+        # ):
+        accelerator.wait_for_everyone()
 
         # load normalizer on all processes
         if cfg.task.task_type == "single_dataset":
