@@ -873,10 +873,10 @@ class MAR(nn.Module):
             nactions,
             task_mode=task_mode,
             proprioception_input=proprioception_input,
-        )
+        ) # I refer to this as z2 in my notes
 
         # ========= MAE Decoder =========
-        z = self.forward_mae_decoder(x, mask)
+        z = self.forward_mae_decoder(x, mask) # I refer to this as z3 in my notes
 
         # ========= Diffloss over Video and Action =========
         mask = rearrange(mask, "b t s -> b (t s)")
