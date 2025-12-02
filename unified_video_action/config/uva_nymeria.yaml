@@ -37,7 +37,7 @@ training:
   use_ema: true
   val_every: 5  # Validate every 5 epochs (less frequent due to longer sequences)
   mixed_precision: 'bf16'  # Changed to bf16 for better stability with DeepSpeed
-  deepspeed_config: unified_video_action/config/zero3.json
+  deepspeed_config: unified_video_action/config/zero2.json # zero3 has interesting deadlock issues
 
 checkpoint:
   save_last_ckpt: true
