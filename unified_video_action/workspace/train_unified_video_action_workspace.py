@@ -243,6 +243,22 @@ class TrainUnifiedVideoActionWorkspace(BaseWorkspace):
             cfg.training.val_every = 1
             cfg.training.sample_every = 1
 
+        # Warm up dataloader - load first batch on all ranks before training
+        # This helps identify if the issue is data loading vs model forward pass
+        accelerator.print(f"[Rank {accelerator.process_index}] Warming up dataloader...")
+        try:
+            warmup_iter = iter(train_dataloader)
+            warmup_batch = next(warmup_iter)
+            accelerator.print(f"[Rank {accelerator.process_index}] First batch loaded successfully, shape: {warmup_batch['obs']['image'].shape}")
+            del warmup_batch, warmup_iter
+        except Exception as e:
+            accelerator.print(f"[Rank {accelerator.process_index}] ERROR loading first batch: {e}")
+            raise
+
+        # Synchronize all processes before starting training
+        accelerator.wait_for_everyone()
+        accelerator.print(f"[Rank {accelerator.process_index}] All ranks synchronized, starting training...")
+
         # training loop
         for local_epoch_idx in range(cfg.training.num_epochs):
             step_log = dict()

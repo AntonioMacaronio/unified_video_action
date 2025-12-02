@@ -16,6 +16,8 @@ from omegaconf import open_dict
 # allows arbitrary python code execution in configs using the ${eval:''} resolver
 OmegaConf.register_new_resolver("eval", eval, replace=True)
 
+# disable file locking for hdf5 files to avoid deadlock for nymeria dataset
+os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
 
 import wandb
 
