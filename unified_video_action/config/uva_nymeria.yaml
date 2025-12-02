@@ -5,6 +5,16 @@ defaults:
   - task: nymeria
   - model: uva
 
+# Override model flags for video-only training (match pretrained MAR model)
+# Pretrained MAR expects 4 parts: [x, cond, action_latents, history_action_latents]
+model:
+  policy:
+    use_history_action: true   # Pretrained model uses history actions (+1 → 4 parts total)
+    use_proprioception: false  # No proprioception for video-only
+    predict_wrist_img: false   # No wrist camera
+    predict_proprioception: false  # No proprioception prediction
+    different_history_freq: false
+
 dataloader:
   batch_size: 16  # Reduced from 32 due to longer sequences (150 vs 32 frames)
   num_workers: 0 # 0 for debugging purposes
