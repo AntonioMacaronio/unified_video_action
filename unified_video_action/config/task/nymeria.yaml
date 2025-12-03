@@ -19,7 +19,7 @@ dataset:
   _target_: unified_video_action.dataset.nymeria_dataset.NymeriaUVADataset
   data_dir: /nfs/antzhan/nymeria/hdf5  # Update this path to your nymeria data location
   image_resolution: 256
-  sequence_length: 150  # Nymeria sequences are ~150 frames
+  sequence_length: 144  # Nymeria sequences are ~150 frames
   val_ratio: 0.02
   seed: 42
   data_aug: true
