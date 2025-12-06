@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 # Adjust this path to your data directory
 DATA_DIR = "/nfs/antzhan/nymeria/mp4"
 
+
 def main():
     print("=" * 60)
     print("Nymeria DataLoader Debug Script")
@@ -56,15 +57,16 @@ def main():
         print(f"    obs/image shape: {item['obs']['image'].shape}")
 
     # Step 3: Test DataLoader
-    print("\n[5] Testing DataLoader (num_workers=0, batch_size=1)...")
-    dataloader = DataLoader(dataset, batch_size=1, num_workers=0, shuffle=False)
+    print("\n[5] Testing DataLoader (num_workers=0, batch_size=16)...")
+    dataloader = DataLoader(dataset, batch_size=16, num_workers=0, shuffle=True)
 
     print("\n[6] Iterating first 3 batches...")
-    for i, batch in enumerate(dataloader):
+    dataloader_iter = iter(dataloader)
+    for i in range(3):
         t0 = time.time()
-        print(f"    Batch {i}: image shape = {batch['obs']['image'].shape}, loaded in {time.time() - t0:.2f}s")
-        if i >= 2:
-            break
+        batch = next(dataloader_iter)
+        elapsed = time.time() - t0
+        print(f"    Batch {i}: image shape = {batch['obs']['image'].shape}, loaded in {elapsed:.2f}s")
 
     print("\n" + "=" * 60)
     print("SUCCESS - DataLoader works with single process!")
