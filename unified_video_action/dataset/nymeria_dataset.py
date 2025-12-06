@@ -65,8 +65,8 @@ class NymeriaUVADataset(BaseImageDataset):
         self.seed = seed
         self.data_aug = data_aug
 
-        # Load the nymeria dataset
-        self.nymeria_dataset = NymeriaDataset(data_dir, file_pattern=file_pattern)
+        # Load the nymeria dataset with image_resolution for decode-time resize (4-5x faster)
+        self.nymeria_dataset = NymeriaDataset(data_dir, file_pattern=file_pattern, image_resolution=image_resolution)
 
         # Create train/val split
         np.random.seed(seed)
@@ -181,13 +181,9 @@ class NymeriaUVADataset(BaseImageDataset):
         seq: NymeriaTrainingSeq = self.nymeria_dataset[dataset_idx]
         seq, _ = seq.pad_or_trim_sequence(self.sequence_length)
 
-        # Process all frames
-        # egoview_RGB shape: (T, 3, 1408, 1408) uint8 [0, 255]
-        processed_frames = []
-        for t in range(self.sequence_length):
-            frame = self._process_image(seq.egoview_RGB[t])  # (3, H, W)
-            processed_frames.append(frame)
-        video_tensor = torch.stack(processed_frames)  # (T, 3, H, W)
+        # Convert frames to tensor and normalize to [0, 1]
+        # egoview_RGB shape: (T, 3, H, W) uint8 [0, 255] - already resized by decord
+        video_tensor = torch.from_numpy(seq.egoview_RGB).float() / 255.0  # (T, 3, H, W)
 
         # Apply augmentation if enabled
         if self.data_aug:
