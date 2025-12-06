@@ -1,4 +1,8 @@
-"""Debug script to test Nymeria dataloader with single process."""
+"""Debug script to test Nymeria dataloader with single process.
+
+Run with
+python dataloading_test.py
+"""
 
 import os
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'

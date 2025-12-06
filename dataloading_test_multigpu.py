@@ -1,4 +1,8 @@
-"""Debug script for multi-GPU training hang - run with accelerate launch."""
+"""Debug script for multi-GPU training hang - run with accelerate launch.
+
+Run with:
+accelerate launch --num_processes=8 dataloading_test_multigpu.py
+"""
 
 import os
 os.environ['HDF5_USE_FILE_LOCKING'] = 'FALSE'
@@ -9,7 +13,7 @@ import torch.distributed as dist
 from torch.utils.data import DataLoader
 from accelerate import Accelerator
 
-DATA_DIR = "/nfs/antzhan/nymeria/hdf5"
+DATA_DIR = "/nfs/antzhan/nymeria/mp4"
 
 def log(accelerator, msg):
     """Print with rank prefix and flush immediately."""
