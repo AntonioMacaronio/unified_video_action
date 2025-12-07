@@ -12,8 +12,7 @@ import torch
 from torch.utils.data import DataLoader
 
 # Adjust this path to your data directory
-DATA_DIR = "/nfs/antzhan/nymeria/mp4"
-
+DATA_DIR = "/data/nymeria"
 
 def main():
     print("=" * 60)
