@@ -17,10 +17,11 @@ model:
 
 dataloader:
   batch_size: 16  # Reduced from 32 due to longer sequences (150 vs 32 frames)
-  num_workers: 0 # 0 for debugging purposes
+  num_workers: 8 # 0 for debugging purposes
   persistent_workers: false
   pin_memory: true
   shuffle: true
+  prefetch_factor: 2
 
 val_dataloader:
   batch_size: 16

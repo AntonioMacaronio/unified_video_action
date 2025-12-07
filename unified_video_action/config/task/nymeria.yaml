@@ -26,6 +26,7 @@ dataset:
   file_pattern: "*.h5"
   language_emb_model: null  # No language conditioning for video-only training
   normalizer_type: "none"  # No action normalization needed for video generation
+  num_datapoints: -1  # Use all datapoints by default
 
 # No env_runner needed for video-only training (no policy evaluation)
 env_runner: null
