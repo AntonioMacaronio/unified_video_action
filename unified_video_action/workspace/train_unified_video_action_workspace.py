@@ -354,7 +354,8 @@ class TrainUnifiedVideoActionWorkspace(BaseWorkspace):
             policy.eval()
 
             # ========= evaluate val video generation =========
-            if cfg.model.policy.autoregressive_model_params.predict_video:
+            sample_every = cfg.training.get("sample_every", 1)
+            if cfg.model.policy.autoregressive_model_params.predict_video and (self.epoch % sample_every == 0):
                 fvd_log = test_video_fvd(
                     cfg,
                     policy,
