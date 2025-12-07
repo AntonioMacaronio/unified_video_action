@@ -445,7 +445,7 @@ def save_image_grid(img, fname, drange, grid_size, normalize=True):
     img = img.transpose(3, 0, 4, 1, 5, 2)
     img = img.reshape(T, gh * H, gw * W, C)
 
-    print(f"Saving Video with {T} frames, img shape {H}, {W}")
+    print(f"Saving Video with {T} frames, img shape {H}, {W} to {fname[:-3]}mp4")
 
     assert C in [3]
 
