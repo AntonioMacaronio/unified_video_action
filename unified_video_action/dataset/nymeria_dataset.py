@@ -7,6 +7,7 @@ to provide data in the format expected by UVA for video generation training.
 
 from typing import Dict
 import torch
+from torch.utils.data import Subset
 import numpy as np
 import copy
 from pathlib import Path
@@ -43,6 +44,7 @@ class NymeriaUVADataset(BaseImageDataset):
         file_pattern="*.h5",
         language_emb_model=None,
         normalizer_type=None,
+        num_datapoints=-1,
     ):
         """
         Args:
@@ -55,6 +57,9 @@ class NymeriaUVADataset(BaseImageDataset):
             file_pattern: Glob pattern for HDF5 files (default: "*.h5")
             language_emb_model: Language embedding model (not used for video-only training)
             normalizer_type: Action normalizer type (not used for video-only training)
+            num_datapoints: Number of datapoints to use (default: -1 for all)
+                - Use 1 datapoint to overfit the model to 1 datapoint for debugging purposes
+                - This is set in `nymeria.yaml` config file under `dataset.num_datapoints`
         """
         super().__init__()
 
@@ -64,10 +69,14 @@ class NymeriaUVADataset(BaseImageDataset):
         self.val_ratio = val_ratio
         self.seed = seed
         self.data_aug = data_aug
-
+        self.num_datapoints = num_datapoints
+        
         # Load the nymeria dataset with image_resolution for decode-time resize (4-5x faster)
         self.nymeria_dataset = NymeriaDataset(data_dir, file_pattern=file_pattern, image_resolution=image_resolution)
-
+        if self.num_datapoints != -1:
+            num_repeats = len(self.nymeria_dataset) // self.num_datapoints
+            self.nymeria_dataset = Subset(self.nymeria_dataset, list(range(self.num_datapoints)) * num_repeats)
+        
         # Create train/val split
         np.random.seed(seed)
         n_episodes = len(self.nymeria_dataset)
