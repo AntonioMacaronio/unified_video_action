@@ -788,7 +788,7 @@ class MAR(nn.Module):
 
     def forward(
         self,
-        imgs,
+        imgs, # in my notes, this is z (VAE latent of second T/2 frames)
         cond,
         history_nactions=None,
         nactions=None,
@@ -882,10 +882,10 @@ class MAR(nn.Module):
         mask = rearrange(mask, "b t s -> b (t s)")
         gt_latents = rearrange(
             gt_latents, "b t s c -> b (t s) c"
-        )
+        ) # gt_latents is z in my notes
 
         # ========= Predict Proprioception =========
-        if self.predict_proprioception: # false for uva_pusht.yaml
+        if self.predict_proprioception: # false for uva_nymeria.yaml
             if self.task_name == "umi":
                 gt_properception = proprioception_input[
                     "robot0_eef_rot_axis_angle_wrt_start_pred"
@@ -920,7 +920,7 @@ class MAR(nn.Module):
                     text_latents=text_latents,
                 )
         else:
-            if self.predict_wrist_img: # false for uva_pusht.yaml
+            if self.predict_wrist_img: # false for uva_nymeria.yaml
                 loss, video_loss, act_loss = self.forward_loss(
                     z=z,
                     target=gt_latents,
@@ -930,10 +930,10 @@ class MAR(nn.Module):
                     gt_wrist_latents=gt_wrist_latents,
                     text_latents=text_latents,
                 )
-            else: # we go here for uva_pusht.yaml
+            else: # we go here for uva_nymeria.yaml
                 loss, video_loss, act_loss = self.forward_loss(
-                    z=z,
-                    target=gt_latents,
+                    z=z, # this is z3 in my notes
+                    target=gt_latents, # this is x in my notes
                     mask=mask,
                     nactions=nactions,
                     task_mode=task_mode,
@@ -1013,7 +1013,7 @@ class MAR(nn.Module):
             indices = tqdm(indices)
 
         # ========= Predict Video =========
-        if self.predict_video:
+        if self.predict_video: # true for uva_nymeria.yaml (it's inside uva.yaml)
             for step in indices:
                 cur_tokens = tokens.clone()
 
@@ -1048,10 +1048,13 @@ class MAR(nn.Module):
 
                 # ========= Mask Ratio =========
                 # mask ratio for the next round, following MaskGIT and MAGE.
-                mask_ratio = np.cos(math.pi / 2.0 * (step + 1) / num_iter)
+                mask_ratio = np.cos(math.pi / 2.0 * (step + 1) / num_iter) # this is just a scalar float
                 mask_len = torch.Tensor([np.floor(self.seq_len * mask_ratio)]).to(
                     self.device
                 )
+                # step=0:  mask_ratio ≈ 1.00 → mask_len = 256 (all still masked)
+                # step=1:  mask_ratio ≈ 0.98 → mask_len = 251 (5 tokens unmasked)
+                # step=2:  mask_ratio ≈ 0.97 → mask_len = 248 (8 tokens unmasked)
 
                 # take the first frame mask
                 mask_ = mask[:, 0]
@@ -1068,6 +1071,8 @@ class MAR(nn.Module):
                 mask_next = mask_by_order(
                     mask_len[0], orders, bsz, self.seq_len, self.device
                 )
+                # this function creates a SPATIAL mask of shape (bsz, seq_len)
+                # it randomly selects mask_len[0] tokens to be 1, and the rest to 0 using the 'orders' tensor
 
                 ## expand mask_next to all frames
                 mask_next = mask_next.unsqueeze(1).expand(-1, T, -1)
