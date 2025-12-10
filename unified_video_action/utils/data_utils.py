@@ -450,14 +450,14 @@ def save_image_grid(img, fname, drange, grid_size, normalize=True):
     assert C in [3]
 
     if C == 3:
-        torchvision.io.write_video(f"{fname[:-3]}mp4", torch.from_numpy(img), fps=16)
+        torchvision.io.write_video(f"{fname[:-3]}mp4", torch.from_numpy(img), fps=4)
         imgs = [PIL.Image.fromarray(img[i], "RGB") for i in range(len(img))]
-        imgs[0].save(
+        imgs[0].save( # saves a gif because save_image_grid is called with fname = .gif file
             fname,
             quality=95,
             save_all=True,
             append_images=imgs[1:],
-            duration=100,
+            duration=250,  # 250ms per frame = 4 fps (matches mp4)
             loop=0,
         )
 

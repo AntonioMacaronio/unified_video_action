@@ -361,10 +361,10 @@ class UnifiedVideoActionPolicy(BaseImagePolicy):
 
     def compute_loss(self, batch, **kwargs):
         B, T, C, H, W = batch["obs"]["image"].size()
-        # B = batch size (32 from config)
-        # T = 32 (horizon from pusht.yaml)
+        # B = batch size (16 from uva_nymeria.yaml 'dataloader')
+        # T = 144 (horizon from nymeria.yaml 'dataset')
         # C = 3 (RGB channels)
-        # H, W = 256x256 (from dataset, resized to 224x224 later)
+        # H, W = 256x256 (from nymeria.yaml 'shape_meta')
 
         text_latents = None
         if self.language_emb_model == "clip":
@@ -399,7 +399,9 @@ class UnifiedVideoActionPolicy(BaseImagePolicy):
         if self.use_history_action:
             batch = dict_apply(batch, lambda x: x[:, 1:])
 
-        # images are resized to 256x256, rearranged and temporally selected to (B=32, C=3, T=8, 256, 256), normalized to [-1, 1] range
+        # Images are temporally selected (T=8 for train, T=4 for eval),
+        # rearranged from (B, T, C, H, W) to (B, C, T, H, W), and normalized to [-1, 1] range.
+        # Also extracts proprioception inputs based on task_name (e.g., pusht, toolhang, umi).
         x, proprioception_input, _ = process_data(
             batch, task_name=self.task_name, **self.kwargs
         )
@@ -409,7 +411,7 @@ class UnifiedVideoActionPolicy(BaseImagePolicy):
         # c = latent of first T/2 frames
         # z = latent of second T/2 frames
         # x = second T/2 frames as original images
-        # each of these have shape (B, T=4, C_latent=16, H=16, W=16), which means we have 256 16x16 patches, each patch = latent 
+        # c and z of these have shape (B, T=4, C_latent=16, H=16, W=16), which means we have 16x16 spatial grid where each cell is a 16-dim latent
         x, z, c, _, proprioception_input = get_vae_latent(
             x, self.vae_model, eval=False, proprioception_input=proprioception_input
         )

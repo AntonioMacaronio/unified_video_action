@@ -32,7 +32,7 @@ from unified_video_action.common.pytorch_util import dict_apply
 from unified_video_action.model.autoregressive.ema_model import EMAModel
 from unified_video_action.model.common.lr_scheduler import get_scheduler
 from unified_video_action.utils.load_env import load_env_runner, env_rollout
-from unified_video_action.eval.eval import test_video_fvd, test_action_l2
+from unified_video_action.eval.eval import test_video_fvd, test_video_fvd_extended, test_action_l2
 from unified_video_action.utils.data_utils import resize_image
 
 OmegaConf.register_new_resolver("eval", eval, replace=True)
@@ -348,7 +348,7 @@ class TrainUnifiedVideoActionWorkspace(BaseWorkspace):
 
             # ========= eval for this epoch ==========
             # policy = self.model
-            policy = accelerator.unwrap_model(self.model)
+            policy = accelerator.unwrap_model(self.model) # removes the accelerator wrapper and exposes an nn.Module underneath 
             if cfg.training.use_ema:
                 policy = self.ema_model
             policy.eval()
@@ -357,14 +357,33 @@ class TrainUnifiedVideoActionWorkspace(BaseWorkspace):
             sample_every = cfg.training.get("sample_every", 1)
             if cfg.model.policy.autoregressive_model_params.predict_video and (self.epoch % sample_every == 0):
                 fvd_log = test_video_fvd(
-                    cfg,
-                    policy,
-                    val_dataloader,
+                    cfg,                # ex: uva_nymeria.yaml
+                    policy,             # self.model
+                    val_dataloader,     # from dataset.get_validation_dataset() = NymeriaUVADataset
                     local_epoch_idx,
                     self.output_dir,
                     device,
                 )
                 step_log.update(fvd_log)
+                
+                # Extended video generation (autoregressive rollout for longer videos)
+                # Set training.extended_video_eval.enabled=true to enable
+                # Set training.extended_video_eval.n_pred_frames=12 to generate 12 frames (must be multiple of 4)
+                extended_eval_cfg = cfg.training.get("extended_video_eval", {})
+                if extended_eval_cfg.get("enabled", False):
+                    n_cond = extended_eval_cfg.get("n_cond_frames", 4)
+                    n_pred = extended_eval_cfg.get("n_pred_frames", 12)
+                    extended_fvd_log = test_video_fvd_extended(
+                        cfg,
+                        policy,
+                        val_dataloader,
+                        local_epoch_idx,
+                        self.output_dir,
+                        device,
+                        n_cond_frames=n_cond,
+                        n_pred_frames=n_pred,
+                    )
+                    step_log.update(extended_fvd_log)
 
             # ========= evaluate val action error =========
             if (
