@@ -42,7 +42,7 @@ training:
   num_epochs: 3000  # Video generation training typically needs many epochs
   resume: true
   rollout_every: null  # No rollout for video-only training
-  sample_every: 1  # Generate video samples every 20 epochs
+  sample_every: 20  # Generate video samples every 20 epochs
   extended_video_eval:  # my new extended video rollout
     enabled: true
     n_cond_frames: 4
