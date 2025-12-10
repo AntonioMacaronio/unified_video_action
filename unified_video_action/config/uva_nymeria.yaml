@@ -31,7 +31,7 @@ val_dataloader:
   shuffle: false
 
 training:
-  checkpoint_every: 10
+  checkpoint_every: 20
   debug: false
   device: cuda:0
   gradient_accumulate_every: 1
@@ -42,7 +42,11 @@ training:
   num_epochs: 3000  # Video generation training typically needs many epochs
   resume: true
   rollout_every: null  # No rollout for video-only training
-  sample_every: 20  # Generate video samples every 20 epochs
+  sample_every: 1  # Generate video samples every 20 epochs
+  extended_video_eval:  # my new extended video rollout
+    enabled: true
+    n_cond_frames: 4
+    n_pred_frames: 28
   seed: 42
   tqdm_interval_sec: 1.0
   use_ema: true

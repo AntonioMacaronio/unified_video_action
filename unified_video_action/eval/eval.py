@@ -314,8 +314,7 @@ def test_video_fvd_extended(
     real_embeddings = []
     pred_embeddings = []
 
-    reals = []
-    predictions = []
+    predictions = []  # Only save predictions (real videos already in test_video_fvd)
 
     n_examples = 4
 
@@ -336,7 +335,7 @@ def test_video_fvd_extended(
 
             x = resize_image(cfg, x)
 
-            B, T_total, C, H, W = x["obs"]["image"].size()
+            B, T, C, H, W = x["obs"]["image"].size()
             k = min(n_examples, B)
 
             actions = actions[:k]
@@ -355,66 +354,37 @@ def test_video_fvd_extended(
             else:
                 language_goal = None
 
-            # Normalize
-            nactions = normalize_action(
-                normalizer=model.normalizer,
-                normalizer_type=model.normalizer_type,
-                actions=actions,
+            # Use the SAME data preparation as test_video_fvd to ensure consistent frame selection
+            # This calls process_data -> select_frames to subsample frames properly
+            (
+                x_processed,  # (B, C, 8, H, W) - 8 subsampled frames, normalized to [-1, 1]
+                real_4frames,  # (B, C, 4, H, W) - last 4 of the 8 subsampled frames (ground truth for first generation)
+                _,
+                c,  # (B, 4, C_latent, H_latent, W_latent) - VAE latents of first 4 subsampled frames
+                text_latents,
+                history_trajectory,
+                trajectory,
+                proprioception_input,
+            ) = prepare_data_predict_action(
+                cfg, x, actions, model, T, device, language_goal=language_goal
             )
-            x_normed = normalize_obs(
-                normalizer=model.normalizer, 
-                normalizer_type=model.normalizer_type, 
-                batch=x
-            )
-
-            # Get images and normalize to [-1, 1]
-            images = x_normed["obs"]["image"]  # (B, T, C, H, W) in [0, 1]
-            images = images * 2 - 1  # Convert to [-1, 1]
-            images = rearrange(images, "b t c h w -> b c t h w")  # (B, C, T, H, W)
             
-            # Initialize: take first n_cond_frames as conditioning
-            cond_frames = images[:, :, :n_cond_frames]  # (B, C, 4, H, W)
-            
-            # Extract conditioning latents
-            cond_latents, _ = extract_latent_autoregressive(model.vae_model, cond_frames)
-            # cond_latents shape: (B, 4, C_latent, H_latent, W_latent)
+            # x_processed contains 8 subsampled frames: first 4 are conditioning, last 4 are first prediction target
+            # c contains VAE latents of the conditioning frames (first 4)
+            # real_4frames contains the ground truth for the first 4 predicted frames
             
             all_generated_frames = []
-            current_cond = cond_latents  # Start with initial conditioning
+            current_cond = c  # Start with properly selected conditioning latents
+            
+            # Store conditioning frames for visualization (from x_processed)
+            cond_frames_vis = x_processed[:, :, :4]  # (B, C, 4, H, W)
             
             # Autoregressive rollout: generate n_rollouts * 4 frames
             for rollout_idx in range(n_rollouts):
-                # Prepare conditioning: rearrange to (B, T, C, H, W) format for sample_tokens
-                c = rearrange(current_cond, "b t c h w -> b t c h w")
-                
-                # Get trajectory info
-                history_trajectory, trajectory = get_trajectory(
-                    nactions, T_total,
-                    cfg.model.policy.shift_action,
-                    use_history_action=cfg.model.policy.use_history_action,
-                )
-                
-                # Handle text latents
-                text_latents = None
-                if cfg.task.dataset.language_emb_model is not None:
-                    if "umi" in cfg.task.name:
-                        text_latents = language_goal
-                    elif "libero" in cfg.task.name:
-                        if cfg.task.dataset.language_emb_model == "clip":
-                            text_tokens = {
-                                "input_ids": language_goal[:, 0].long()[:, 0],
-                                "attention_mask": language_goal[:, 0].long()[:, 1],
-                            }
-                            text_latents = extract_text_features(
-                                model.text_model,
-                                text_tokens,
-                                language_emb_model=cfg.task.dataset.language_emb_model,
-                            )
-                
                 # Generate 4 frames
                 z_gen, _ = model.model.sample_tokens(
                     bsz=k,
-                    cond=c,
+                    cond=current_cond,
                     text_latents=text_latents,
                     num_iter=cfg.model.policy.autoregressive_model_params.num_iter,
                     cfg=cfg.model.policy.autoregressive_model_params.cfg,
@@ -422,7 +392,7 @@ def test_video_fvd_extended(
                     temperature=cfg.model.policy.autoregressive_model_params.temperature,
                     history_nactions=history_trajectory,
                     nactions=trajectory,
-                    proprioception_input={},
+                    proprioception_input=proprioception_input if rollout_idx == 0 else {},
                     task_mode="full_dynamic_model",
                 )
                 
@@ -441,64 +411,49 @@ def test_video_fvd_extended(
             # Concatenate all generated frames: (B, n_pred_frames, C, H, W)
             all_generated = torch.cat(all_generated_frames, dim=1)
             
-            # Get ground truth frames for comparison
-            # Real frames: starting from n_cond_frames
-            total_needed = n_cond_frames + n_pred_frames
-            if T_total >= total_needed:
-                real_frames = images[:, :, n_cond_frames:total_needed]  # (B, C, n_pred_frames, H, W)
-            else:
-                # Pad with last frame if not enough
-                real_frames = images[:, :, n_cond_frames:]
-                pad_size = n_pred_frames - real_frames.size(2)
-                if pad_size > 0:
-                    real_frames = torch.cat([
-                        real_frames, 
-                        real_frames[:, :, -1:].repeat(1, 1, pad_size, 1, 1)
-                    ], dim=2)
+            # For FVD, we compare generated frames against the ground truth (real_4frames for first 4)
+            # For extended rollout, we only have ground truth for the first 4 generated frames
+            real_for_fvd = rearrange(real_4frames, "b c t h w -> b t h w c")
             
             # Convert to display format
             pred = 1 + rearrange(all_generated, "b t c h w -> b t h w c")  # [0, 2]
-            real = (1 + rearrange(real_frames, "b c t h w -> b t h w c")).cpu()
+            real_for_fvd = (1 + real_for_fvd).cpu()
             
             pred = pred * 127.5
             pred = pred.type(torch.uint8).cpu()
             
-            real = real * 127.5
-            real = real.type(torch.uint8)
+            real_for_fvd = real_for_fvd * 127.5
+            real_for_fvd = real_for_fvd.type(torch.uint8)
             
             # Get conditioning frames for visualization
-            cond_vis = (1 + rearrange(cond_frames, "b c t h w -> b t h w c")).cpu()
+            cond_vis = (1 + rearrange(cond_frames_vis, "b c t h w -> b t h w c")).cpu()
             cond_vis = (cond_vis * 127.5).type(torch.uint8)
-            
-            # Convert for visualization: concat conditioning + prediction
-            x_display = (1 + images) * 127.5
-            x_display = x_display.type(torch.uint8).cpu()
             
             if len(predictions) < n_examples:
                 # For visualization: [cond (4 frames) | pred (n_pred_frames)]
                 cond_for_vis = rearrange(cond_vis, "b t h w c -> b c t h w")
                 pred_for_vis = rearrange(pred, "b t h w c -> b c t h w")
-                real_for_vis = rearrange(real, "b t h w c -> b c t h w")
-                
-                reals.append(torch.cat([cond_for_vis, real_for_vis], dim=2))
                 predictions.append(torch.cat([cond_for_vis, pred_for_vis], dim=2))
 
-            # FVD calculation needs at least 16 frames, repeat if needed
-            if pred.shape[1] < 16:
-                repeat_factor = (16 + pred.shape[1] - 1) // pred.shape[1]
-                pred_fvd = pred.repeat_interleave(repeats=repeat_factor, dim=1)[:, :16]
-                real_fvd = real.repeat_interleave(repeats=repeat_factor, dim=1)[:, :16]
+            # FVD calculation: compare first 4 generated frames against ground truth
+            # (We only have ground truth for the first 4 generated frames from the subsampled sequence)
+            pred_first4 = pred[:, :4]  # First 4 generated frames
+            
+            # FVD needs at least 16 frames, repeat if needed
+            if pred_first4.shape[1] < 16:
+                pred_fvd = pred_first4.repeat_interleave(repeats=4, dim=1)
+                real_fvd = real_for_fvd.repeat_interleave(repeats=4, dim=1)
             else:
-                pred_fvd = pred[:, :16]
-                real_fvd = real[:, :16]
+                pred_fvd = pred_first4[:, :16]
+                real_fvd = real_for_fvd[:, :16]
 
             pred_embeddings.append(get_fvd_logits(pred_fvd.numpy(), i3d=i3d, device=device))
             real_embeddings.append(get_fvd_logits(real_fvd.numpy(), i3d=i3d, device=device))
 
     log_data = dict()
-    reals = torch.cat(reals)
     predictions = torch.cat(predictions)
 
+    # FVD calculation (still needs real embeddings for comparison)
     real_embeddings = torch.cat(real_embeddings)
     pred_embeddings = torch.cat(pred_embeddings)
     fvd = frechet_distance(
@@ -506,26 +461,20 @@ def test_video_fvd_extended(
     )
     fvd = fvd.item()
 
+    # Only save the extended predicted video (real video already saved by test_video_fvd)
     os.makedirs(output_dir + "/vis", exist_ok=True)
-    real_vid = save_image_grid(
-        reals.cpu().numpy(),
-        os.path.join(output_dir, f"vis/{name_label}real_{it}.gif"),
-        drange=[0, 255],
-        grid_size=(reals.size(0) // 4, 4),
-    )
     pred_vid = save_image_grid(
         predictions.cpu().numpy(),
         os.path.join(output_dir, f"vis/{name_label}predicted_{it}.gif"),
         grid_size=(predictions.size(0) // 4, 4),
+        drange=[0, 255],
     )
 
-    real_video = wandb.Video(os.path.join(output_dir, f"vis/{name_label}real_{it}.mp4"))
     pred_video = wandb.Video(
         os.path.join(output_dir, f"vis/{name_label}predicted_{it}.mp4")
     )
 
     log_data[f"{name_label}video_fvd"] = fvd
-    log_data[f"{name_label}real_img"] = real_video
     log_data[f"{name_label}predicted_img"] = pred_video
     log_data[f"{name_label}n_cond_frames"] = n_cond_frames
     log_data[f"{name_label}n_pred_frames"] = n_pred_frames
