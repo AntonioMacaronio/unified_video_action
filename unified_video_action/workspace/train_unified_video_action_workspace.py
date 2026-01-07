@@ -355,7 +355,7 @@ class TrainUnifiedVideoActionWorkspace(BaseWorkspace):
 
             # ========= evaluate val video generation =========
             sample_every = cfg.training.get("sample_every", 1)
-            if cfg.model.policy.autoregressive_model_params.predict_video and (self.epoch % sample_every == 0):
+            if cfg.model.policy.autoregressive_model_params.predict_video and (self.epoch % sample_every == 0) and accelerator.is_main_process:
                 fvd_log = test_video_fvd(
                     cfg,                # ex: uva_nymeria.yaml
                     policy,             # self.model
@@ -365,7 +365,7 @@ class TrainUnifiedVideoActionWorkspace(BaseWorkspace):
                     device,
                 )
                 step_log.update(fvd_log)
-                
+
                 # Extended video generation (autoregressive rollout for longer videos)
                 # Set training.extended_video_eval.enabled=true to enable
                 # Set training.extended_video_eval.n_pred_frames=12 to generate 12 frames (must be multiple of 4)
