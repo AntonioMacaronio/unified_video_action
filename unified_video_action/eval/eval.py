@@ -206,10 +206,13 @@ def test_video_fvd(
             x = x.type(torch.uint8).cpu()
 
             if len(predictions) < n_examples:
+                # Save conditioning frames explicitly to ensure both videos use identical frames
+                cond_frames = x[:, :, : x.size(2) // 2].clone()
+
                 reals.append(
                     torch.cat(
                         [
-                            x[:, :, : x.size(2) // 2],
+                            cond_frames,
                             rearrange(real, "b t h w c -> b c t h w"),
                         ],
                         dim=2,
@@ -218,7 +221,7 @@ def test_video_fvd(
                 predictions.append(
                     torch.cat(
                         [
-                            x[:, :, : x.size(2) // 2],
+                            cond_frames,
                             rearrange(pred, "b t h w c -> b c t h w"),
                         ],
                         dim=2,
