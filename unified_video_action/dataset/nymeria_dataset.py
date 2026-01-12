@@ -24,6 +24,7 @@ from unified_video_action.common.normalize_util import get_image_range_normalize
 import torchvision.transforms as transforms
 import torchvision
 
+from transforms import SE3, SO3
 
 class NymeriaUVADataset(BaseImageDataset):
     """
@@ -115,20 +116,24 @@ class NymeriaUVADataset(BaseImageDataset):
     def get_normalizer(self, mode="limits", **kwargs):
         """
         Return normalizer for the dataset.
-        For video-only training, we only need image normalization.
+        Action dimension is 144 = 6 (CPF change) + 23*6 (joint twists).
         """
+        # TODO: finish this
         normalizer = LinearNormalizer()
-        # For video generation, we create dummy actions with zero mean/std
-        # The actual normalization will be handled by the image normalizer
-        dummy_action = np.zeros((100, 1))  # (episodes, action_dim)
+        # Create dummy actions with correct dimension for fitting normalizer
+        # Action dim: 6 (CPF change twist) + 23*6 (joint twists) = 144
+        action_dim = 6 + 23 * 6  # 144
+        dummy_action = np.zeros((100, action_dim))  # (episodes, action_dim)
         normalizer.fit(data={"action": dummy_action}, last_n_dims=1, mode=mode, **kwargs)
         normalizer["image"] = get_image_range_normalizer()
         return normalizer
 
     def get_all_actions(self) -> torch.Tensor:
-        """Return all actions. For video-only training, returns dummy actions."""
-        # Return dummy actions with shape (n_samples, action_dim)
-        return torch.zeros(len(self), 1)
+        """Return all actions. Returns dummy actions with correct dimension."""
+        # TODO: finish this
+        # Action dim: 6 (CPF change twist) + 23*6 (joint twists) = 144
+        action_dim = 6 + 23 * 6  # 144
+        return torch.zeros(len(self), action_dim)
 
     def __len__(self) -> int:
         return len(self.active_indices)
@@ -181,7 +186,13 @@ class NymeriaUVADataset(BaseImageDataset):
             dict with:
                 obs: dict with:
                     image: torch.Tensor (T, 3, H, W) normalized to [0, 1]
-                action: torch.Tensor (T, 1) dummy actions (all zeros)
+                action: torch.Tensor (T, 144) containing:
+                    - CPF change twist (6D): relative SE3 twist from frame i to i+1
+                      Format: (vx, vy, vz, omega_x, omega_y, omega_z)
+                      First timestep is zeros (no previous frame).
+                    - Joint twists (23 joints * 6D = 138D): SE3 twist of each joint
+                      relative to CPF at each timestep.
+                      T_{cpf, joint} = T_{world, cpf}^-1 @ T_{world, joint}
         """
         # Map idx to actual dataset index
         dataset_idx = self.active_indices[idx]
@@ -198,15 +209,64 @@ class NymeriaUVADataset(BaseImageDataset):
         if self.data_aug:
             video_tensor = self._apply_video_augmentation(video_tensor)
 
-        # Create dummy actions (zeros) for video-only training
-        # Shape: (T, 1)
-        dummy_actions = torch.zeros(self.sequence_length, 1, dtype=torch.float32)
+        # Calculate the change in central pupil frame from frame i to frame i+1 for i = 0, ... , T-1.
+        # T_{world, cpf}[i] is the transform from world to CPF at timestep i
+        # We want T_{cpf[i], cpf[i+1]} = T_{world, cpf[i]}^{-1} @ T_{world, cpf[i+1]}
+        # This gives us the relative motion in the local CPF frame.
+
+        # Get CPF poses: rotation (T, 3, 3) and translation (T, 3)
+        cpf_rotation = torch.from_numpy(seq.cpf_orientation).float()  # (T, 3, 3)
+        cpf_translation = torch.from_numpy(seq.cpf_translation).float()  # (T, 3)
+
+        # Create SE3 transform objects for each timestep.
+        cpf_so3 = SO3.from_matrix(cpf_rotation)  # SO3 with batch shape (T,)
+        T_world_cpf = SE3.from_rotation_and_translation(cpf_so3, cpf_translation)  # SE3 with batch shape (T,)
+
+        # Compute relative transforms: T_{cpf[i], cpf[i+1]} for i = 0, ..., T-2
+        # T_prev = T_{world, cpf}[:-1], T_curr = T_{world, cpf}[1:]
+        T_world_cpf_prev = SE3(wxyz_xyz=T_world_cpf.wxyz_xyz[:-1])  # (T-1,)
+        T_world_cpf_curr = SE3(wxyz_xyz=T_world_cpf.wxyz_xyz[1:])   # (T-1,)
+
+        # T_{cpf[i], cpf[i+1]} = T_{world, cpf[i]}^{-1} @ T_{world, cpf[i+1]}
+        T_cpf_change = T_world_cpf_prev.inverse() @ T_world_cpf_curr  # SE3 with batch shape (T-1,)
+
+        # Convert to 6D twist representation (tangent space): (vx, vy, vz, omega_x, omega_y, omega_z)
+        cpf_change_twist = T_cpf_change.log()  # (T-1, 6)
+        # Pad first timestep with zeros (no previous frame to compare to)
+        cpf_change_twist = torch.cat([
+            torch.zeros(1, 6, dtype=torch.float32),
+            cpf_change_twist
+        ], dim=0)  # (T, 6)
+
+        # Calculate the transformation of each joint in frame i for i = 0, ..., T-1.
+        # T_{cpf, joint}[i] = transformation from the central pupil frame to the joint frame at timestep i.
+        # T_{cpf, joint}[i] = T_{world, cpf}^-1 @ T_{world, joint}
+
+        # Get the T_{world, joint} poses for each timestep of the nymeria sequence.
+        joint_rotation = torch.from_numpy(seq.joint_orientation).float()    # (T, 23, 3, 3)
+        joint_translation = torch.from_numpy(seq.joint_translation).float() # (T, 23, 3)
+
+        # Create SE3 transform objects for each joint at each timestep.
+        joint_so3 = SO3.from_matrix(joint_rotation)                                     # SO3 with batch shape (T, 23)
+        T_world_joint = SE3.from_rotation_and_translation(joint_so3, joint_translation) # SE3 with batch shape (T, 23)
+
+        # Compute T_cpf_joint = T_world_cpf^-1 @ T_world_joint
+        # Add dimension for broadcasting: (T, 7) -> (T, 1, 7) to broadcast with (T, 23, 7)
+        T_cpf_world = SE3(wxyz_xyz=T_world_cpf.wxyz_xyz.unsqueeze(1)).inverse()  # SE3 with batch shape (T, 1)
+        T_cpf_joint = T_cpf_world @ T_world_joint  # SE3 with batch shape (T, 23)
+
+        # Convert to twist representation and flatten (6D tangent space): (vx, vy, vz, omega_x, omega_y, omega_z)
+        joint_twists = T_cpf_joint.log()  # (T, 23, 6)
+        joint_twists_flat = joint_twists.reshape(joint_twists.shape[0], -1)  # (T, 23*6=138)
+
+        # Concatenate CPF change twist (T, 6) with joint twists (T, 138) -> (T, 144)
+        actions = torch.cat([cpf_change_twist, joint_twists_flat], dim=-1)  # (T, 6 + 23*6 = 144)
 
         data = {
             "obs": {
                 "image": video_tensor,  # (T, 3, H, W) in [0, 1]
             },
-            "action": dummy_actions,  # (T, 1)
+            "action": actions,  # (T, 144) - CPF change twist (6) + joint twists (23*6=138)
         }
 
         return data
