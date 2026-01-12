@@ -16,22 +16,22 @@ DATASETS = {
     "cup_arrangement_0": "https://real.stanford.edu/umi/data/cup_in_the_wild/cup_in_the_wild.zarr.zip",
     "cup_arrangement_1": "https://real.stanford.edu/umi/data/cup_arrangement/cup_in_the_lab.zarr.zip",
     ### ManiWAV
-    "whiteboard_wiping_0": "https://real.stanford.edu/maniwav/data/wipe/replay_buffer.zarr.zip",
-    "bagle_flipping_0": "https://real.stanford.edu/maniwav/data/flip/replay_buffer.zarr.zip",
-    "bagle_flipping_1": "https://real.stanford.edu/maniwav/data/bagel_in_wild/replay_buffer.zarr.zip",
-    "dice_pouring_0": "https://real.stanford.edu/maniwav/data/pour/replay_buffer.zarr.zip",
-    "wire_strapping_0": "https://real.stanford.edu/maniwav/data/velcro_tape/replay_buffer.zarr.zip",
+    # "whiteboard_wiping_0": "https://real.stanford.edu/maniwav/data/wipe/replay_buffer.zarr.zip",
+    # "bagle_flipping_0": "https://real.stanford.edu/maniwav/data/flip/replay_buffer.zarr.zip",
+    # "bagle_flipping_1": "https://real.stanford.edu/maniwav/data/bagel_in_wild/replay_buffer.zarr.zip",
+    # "dice_pouring_0": "https://real.stanford.edu/maniwav/data/pour/replay_buffer.zarr.zip",
+    # "wire_strapping_0": "https://real.stanford.edu/maniwav/data/velcro_tape/replay_buffer.zarr.zip",
     ### UMI-on-Legs
-    "kettlebell_pushing_0": "https://real.stanford.edu/umi-on-legs/pushing_2024_05_29_huy.zarr.zip",
-    "tennis_ball_tossing_0": "https://real.stanford.edu/umi-on-legs/tossing.zarr.zip",
+    # "kettlebell_pushing_0": "https://real.stanford.edu/umi-on-legs/pushing_2024_05_29_huy.zarr.zip",
+    # "tennis_ball_tossing_0": "https://real.stanford.edu/umi-on-legs/tossing.zarr.zip",
     ### Data Scaling Laws
-    "charger_unplugging_0": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/unplug_charger/dataset.zarr.zip?download=true",
-    "water_pouring_0": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/pour_water/dataset.zarr.zip?download=true",
-    "water_pouring_1": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/pour_water_16_env_4_object/dataset_part_aa?download=true;https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/pour_water_16_env_4_object/dataset_part_ab?download=true",  # Merge the two parts before unzipping
+    # "charger_unplugging_0": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/unplug_charger/dataset.zarr.zip?download=true",
+    # "water_pouring_0": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/pour_water/dataset.zarr.zip?download=true",
+    # "water_pouring_1": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/pour_water_16_env_4_object/dataset_part_aa?download=true;https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/pour_water_16_env_4_object/dataset_part_ab?download=true",  # Merge the two parts before unzipping
     # "water_pouring_1" contains 2 parts. It will take a while to merge the two parts and unzip the file.
-    "mouse_arrangement_0": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/arrange_mouse/dataset.zarr.zip?download=true",
-    "mouse_arrangement_1": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/arrange_mouse_16_env_4_object/dataset.zarr.zip?download=true",
-    "towel_folding_0": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/fold_towel/dataset.zarr.zip?download=true",
+    # "mouse_arrangement_0": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/arrange_mouse/dataset.zarr.zip?download=true",
+    # "mouse_arrangement_1": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/arrange_mouse_16_env_4_object/dataset.zarr.zip?download=true",
+    # "towel_folding_0": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/fold_towel/dataset.zarr.zip?download=true",
 }
 
 
