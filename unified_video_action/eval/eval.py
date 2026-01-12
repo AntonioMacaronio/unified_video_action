@@ -147,7 +147,7 @@ def test_video_fvd(
             x = resize_image(cfg, x)
 
             B, T, C, H, W = x["obs"]["image"].size()
-            k = min(n_examples, B)
+            k = min(n_examples, B) # we pick 4 examples from the batch to evaluate!
 
             actions = actions[:k]
             x = dict_apply(x, lambda x: x[:k])
