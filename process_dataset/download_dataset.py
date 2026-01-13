@@ -10,11 +10,11 @@ PROJECT_NAME = "uva"
 # Comment out the datasets you don't want to download
 DATASETS = {
     ### UMI
-    "dish_washing_0": "https://real.stanford.edu/umi/data/dish_washing/bimanual_dish_washing.zarr.zip",
-    "cloth_folding_0": "https://real.stanford.edu/umi/data/bimanual_cloth_folding/bimanual_cloth_folding.zarr.zip",
-    "dynamic_tossing_0": "https://real.stanford.edu/umi/data/dynamic_tossing/dynamic_tossing.zarr.zip",
+    # "dish_washing_0": "https://real.stanford.edu/umi/data/dish_washing/bimanual_dish_washing.zarr.zip",
+    # "cloth_folding_0": "https://real.stanford.edu/umi/data/bimanual_cloth_folding/bimanual_cloth_folding.zarr.zip",
+    # "dynamic_tossing_0": "https://real.stanford.edu/umi/data/dynamic_tossing/dynamic_tossing.zarr.zip",
     "cup_arrangement_0": "https://real.stanford.edu/umi/data/cup_in_the_wild/cup_in_the_wild.zarr.zip",
-    "cup_arrangement_1": "https://real.stanford.edu/umi/data/cup_arrangement/cup_in_the_lab.zarr.zip",
+    # "cup_arrangement_1": "https://real.stanford.edu/umi/data/cup_arrangement/cup_in_the_lab.zarr.zip",
     ### ManiWAV
     # "whiteboard_wiping_0": "https://real.stanford.edu/maniwav/data/wipe/replay_buffer.zarr.zip",
     # "bagle_flipping_0": "https://real.stanford.edu/maniwav/data/flip/replay_buffer.zarr.zip",
@@ -29,9 +29,9 @@ DATASETS = {
     # "water_pouring_0": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/pour_water/dataset.zarr.zip?download=true",
     # "water_pouring_1": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/pour_water_16_env_4_object/dataset_part_aa?download=true;https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/pour_water_16_env_4_object/dataset_part_ab?download=true",  # Merge the two parts before unzipping
     # "water_pouring_1" contains 2 parts. It will take a while to merge the two parts and unzip the file.
-    # "mouse_arrangement_0": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/arrange_mouse/dataset.zarr.zip?download=true",
+    "mouse_arrangement_0": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/arrange_mouse/dataset.zarr.zip?download=true",
     # "mouse_arrangement_1": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/arrange_mouse_16_env_4_object/dataset.zarr.zip?download=true",
-    # "towel_folding_0": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/fold_towel/dataset.zarr.zip?download=true",
+    "towel_folding_0": "https://huggingface.co/datasets/Fanqi-Lin/Processed-Task-Dataset/resolve/main/fold_towel/dataset.zarr.zip?download=true",
 }
 
 
@@ -114,7 +114,7 @@ def convert_zip_to_lz4(dataset_name: str, data_dir: str):
 
     print(f"Unzipping {shm_file} to {shm_data_dir}/{dataset_name}.zarr")
     subprocess.run(
-        ["unzip", shm_file, "-d", f"{shm_data_dir}/{dataset_name}.zarr"],
+        ["unzip", "-o", shm_file, "-d", f"{shm_data_dir}/{dataset_name}.zarr"],
         check=True,
         stdout=subprocess.DEVNULL,
     )
