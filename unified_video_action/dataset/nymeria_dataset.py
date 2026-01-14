@@ -46,6 +46,7 @@ class NymeriaUVADataset(BaseImageDataset):
         language_emb_model=None,
         normalizer_type=None,
         num_datapoints=-1,
+        text_embeddings_path=None,
     ):
         """
         Args:
@@ -56,11 +57,13 @@ class NymeriaUVADataset(BaseImageDataset):
             seed: Random seed for train/val split
             data_aug: Whether to apply data augmentation
             file_pattern: Glob pattern for HDF5 files (default: "*.h5")
-            language_emb_model: Language embedding model (not used for video-only training)
-            normalizer_type: Action normalizer type (not used for video-only training)
+            language_emb_model: Language embedding model (e.g., "clip" for CLIP embeddings)
+            normalizer_type: Action normalizer type (e.g., "limits" for min-max normalization)
             num_datapoints: Number of datapoints to use (default: -1 for all)
                 - Use 1 datapoint to overfit the model to 1 datapoint for debugging purposes
                 - This is set in `nymeria.yaml` config file under `dataset.num_datapoints`
+            text_embeddings_path: Path to precomputed text embeddings pickle file.
+                Generate with: python scripts/precompute_nymeria_text_embeddings.py
         """
         super().__init__()
 
@@ -71,7 +74,29 @@ class NymeriaUVADataset(BaseImageDataset):
         self.seed = seed
         self.data_aug = data_aug
         self.num_datapoints = num_datapoints
-        
+        self.language_emb_model = language_emb_model
+
+        # Load precomputed text embeddings if provided
+        self.text_embeddings = None # this is a dictionary of {filename: (512,) tensor}
+        if text_embeddings_path is not None:
+            text_embeddings_path = Path(text_embeddings_path)
+            if text_embeddings_path.exists():
+                print(f"Loading precomputed text embeddings from {text_embeddings_path}")
+                with open(text_embeddings_path, "rb") as f:
+                    text_emb_data = pickle.load(f)
+                    # this is a dictionary with the following keys: 'embeddings', 'texts', 'model', 'embedding_dim'
+                    # {
+                    #     'embeddings': {filename: (512,) tensor},
+                    #     'texts': {filename: text},
+                    #     'model': 'openai/clip-vit-base-patch32',
+                    #     'embedding_dim': 512
+                    # }
+                self.text_embeddings = text_emb_data["embeddings"]  # {filename: (512,) tensor}
+                print(f"  Loaded {len(self.text_embeddings)} text embeddings (dim={text_emb_data['embedding_dim']})")
+            else:
+                print(f"WARNING: Text embeddings file not found: {text_embeddings_path}")
+                print("  Run: python scripts/precompute_nymeria_text_embeddings.py --data-dir <data_dir>")
+
         # Load the nymeria dataset with image_resolution for decode-time resize (4-5x faster)
         self.nymeria_dataset = NymeriaDataset(data_dir, file_pattern=file_pattern, image_resolution=image_resolution)
         if self.num_datapoints != -1:
@@ -117,23 +142,44 @@ class NymeriaUVADataset(BaseImageDataset):
         """
         Return normalizer for the dataset.
         Action dimension is 144 = 6 (CPF change) + 23*6 (joint twists).
+
+        This iterates through the dataset to collect all actions and fits
+        the normalizer on the actual data distribution. This is slow but
+        only runs once at training start.
         """
-        # TODO: finish this
         normalizer = LinearNormalizer()
-        # Create dummy actions with correct dimension for fitting normalizer
-        # Action dim: 6 (CPF change twist) + 23*6 (joint twists) = 144
-        action_dim = 6 + 23 * 6  # 144
-        dummy_action = np.zeros((100, action_dim))  # (episodes, action_dim)
-        normalizer.fit(data={"action": dummy_action}, last_n_dims=1, mode=mode, **kwargs)
+
+        # Collect all actions from the dataset
+        all_actions = self.get_all_actions()  # (N, 144)
+
+        normalizer.fit(data={"action": all_actions.numpy()}, last_n_dims=1, mode=mode, **kwargs)
         normalizer["image"] = get_image_range_normalizer()
         return normalizer
 
     def get_all_actions(self) -> torch.Tensor:
-        """Return all actions. Returns dummy actions with correct dimension."""
-        # TODO: finish this
-        # Action dim: 6 (CPF change twist) + 23*6 (joint twists) = 144
+        """
+        Return all actions from the training set.
+
+        Iterates through all training samples to collect actions.
+        Returns tensor of shape (N, 144) where N = len(dataset).
+        """
         action_dim = 6 + 23 * 6  # 144
-        return torch.zeros(len(self), action_dim)
+        all_actions = []
+
+        print(f"Collecting all actions from {len(self)} samples for normalizer fitting...")
+        for idx in range(len(self)):
+            sample = self[idx]
+            # sample['action'] has shape (T, 144), we flatten to (T*144) or keep per-timestep
+            # For normalizer, we want all action values, so concatenate all timesteps
+            actions = sample['action']  # (T, 144)
+            all_actions.append(actions)
+
+        # Stack all actions: (N, T, 144) -> reshape to (N*T, 144)
+        all_actions = torch.stack(all_actions, dim=0)  # (N, T, 144)
+        all_actions = all_actions.reshape(-1, action_dim)  # (N*T, 144)
+
+        print(f"Collected {all_actions.shape[0]} action samples with dimension {action_dim}")
+        return all_actions
 
     def __len__(self) -> int:
         return len(self.active_indices)
@@ -268,6 +314,25 @@ class NymeriaUVADataset(BaseImageDataset):
             },
             "action": actions,  # (T, 144) - CPF change twist (6) + joint twists (23*6=138)
         }
+
+        # Add precomputed text embedding if available
+        if self.text_embeddings is not None:
+            # Get the filename for this sequence # Handle both regular dataset and Subset wrapper
+            if hasattr(self.nymeria_dataset, 'hdf5_paths'): # Regular NymeriaDataset from pip-installed nymeria package
+                hdf5_path = Path(self.nymeria_dataset.hdf5_paths[dataset_idx])
+            else:
+                # Subset wrapper - access underlying dataset
+                underlying_idx = self.nymeria_dataset.indices[dataset_idx]
+                hdf5_path = Path(self.nymeria_dataset.dataset.hdf5_paths[underlying_idx])
+
+            filename = hdf5_path.name
+            if filename in self.text_embeddings:
+                # Add as language_latents for direct use by the model
+                data["language_latents"] = self.text_embeddings[filename]  # (512,)
+            else:
+                # Fallback: zero embedding if text not found
+                print(f"WARNING: No text embedding found for {filename}")
+                data["language_latents"] = torch.zeros(512)
 
         return data
 
