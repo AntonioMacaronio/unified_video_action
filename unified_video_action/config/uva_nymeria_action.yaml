@@ -1,0 +1,95 @@
+name: uva_nymeria_action
+
+defaults:
+  - _self_
+  - task: nymeria_action
+  - model: uva
+
+# Model flags for video + action + language training
+model:
+  policy:
+    use_history_action: true   # Use history actions for action prediction
+    use_proprioception: false  # No proprioception for Nymeria
+    predict_wrist_img: false   # No wrist camera
+    predict_proprioception: false  # No proprioception prediction
+    different_history_freq: false
+
+    # Enable action prediction
+    action_model_params:
+      predict_action: True
+      act_model_type: conv_fc
+
+dataloader:
+  batch_size: 16  # Reduced from 32 due to longer sequences (144 frames)
+  num_workers: 16
+  persistent_workers: true  # Keep workers alive to avoid re-opening HDF5 files each epoch
+  pin_memory: true
+  shuffle: true
+  prefetch_factor: 4
+
+val_dataloader:
+  batch_size: 16
+  num_workers: 8
+  persistent_workers: true
+  pin_memory: true
+  shuffle: false
+
+training:
+  checkpoint_every: 20
+  debug: false
+  device: cuda:0
+  gradient_accumulate_every: 1
+  lr_scheduler: cosine
+  lr_warmup_steps: 1000
+  max_train_steps: null
+  max_val_steps: null
+  num_epochs: 3000
+  resume: true  # Resume from previous checkpoint
+  rollout_every: null  # No rollout (no simulator)
+  sample_every: 20  # Generate video samples every 20 epochs
+  extended_video_eval:
+    enabled: true
+    n_cond_frames: 4
+    n_pred_frames: 28
+  seed: 42
+  tqdm_interval_sec: 1.0
+  use_ema: true
+  val_every: 5
+  mixed_precision: 'bf16'
+  deepspeed_config: unified_video_action/config/zero2.json
+
+checkpoint:
+  save_last_ckpt: true
+  save_last_snapshot: false
+  topk:
+    monitor_key: val_loss
+    format_str: epoch={epoch:04d}-val_loss={val_loss:.3f}.ckpt
+    k: 3
+    mode: min
+
+ema:
+  _target_: unified_video_action.model.autoregressive.ema_model.EMAModel
+  inv_gamma: 1.0
+  max_value: 0.9999
+  min_value: 0.0
+  power: 0.75
+  update_after_step: 0
+
+logging:
+  group: null
+  id: null
+  mode: online
+  name: train_uva_nymeria_action
+  project: unified_video_action
+  resume: true
+  tags:
+  - train_uva_nymeria
+  - nymeria
+  - video_generation
+  - action_prediction
+  - language_conditioning
+  - ego_motion
+
+multi_run:
+  run_dir: data/outputs/train_uva_nymeria_action
+  wandb_name_base: train_uva_nymeria_action

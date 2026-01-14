@@ -1,0 +1,33 @@
+name: nymeria
+task_type: single_dataset
+task_modes: []
+
+shape_meta:
+  image_resolution: 256  # Resize from 1408x1408 to 256x256 for efficiency
+  action:
+    shape:
+    - 144  # CPF change twist (6) + joint twists (23*6=138)
+  obs:
+    image:
+      shape:
+      - 3
+      - 256
+      - 256
+      type: rgb
+
+dataset:
+  _target_: unified_video_action.dataset.nymeria_dataset.NymeriaUVADataset
+  data_dir: /nfs/antzhan/nymeria/hdf5  # Update this path to your nymeria data location
+  image_resolution: 256
+  sequence_length: 144  # Nymeria sequences are ~150 frames
+  val_ratio: 0.02
+  seed: 42
+  data_aug: true
+  file_pattern: "*.h5"
+  language_emb_model: clip  # Use CLIP for language conditioning
+  normalizer_type: "limits"  # Min-max normalization for actions
+  num_datapoints: -1  # Use all datapoints by default
+  text_embeddings_path: /nfs/antzhan/nymeria/hdf5/text_embeddings.pkl  # Precomputed CLIP embeddings
+
+# No env_runner needed (no simulator for policy evaluation)
+env_runner: null
