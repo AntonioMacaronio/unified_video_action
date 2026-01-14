@@ -20,7 +20,7 @@ model:
       act_model_type: conv_fc
 
 dataloader:
-  batch_size: 16  # Reduced from 32 due to longer sequences (144 frames)
+  batch_size: 32
   num_workers: 16
   persistent_workers: true  # Keep workers alive to avoid re-opening HDF5 files each epoch
   pin_memory: true
