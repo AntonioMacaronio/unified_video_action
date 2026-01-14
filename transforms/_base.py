@@ -2,15 +2,19 @@ import abc
 from typing import (
     ClassVar,
     Generic,
-    Self,
     Tuple,
     Type,
     TypeVar,
     Union,
     final,
     overload,
-    override,
 )
+
+# Python 3.10 compatibility: Self and override are only in typing for 3.11+
+try:
+    from typing import Self, override
+except ImportError:
+    from typing_extensions import Self, override
 
 import numpy as onp
 import torch

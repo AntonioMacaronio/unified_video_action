@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Union, cast, override
+from typing import Union, cast
+
+# Python 3.10 compatibility: override is only in typing for 3.11+
+try:
+    from typing import override
+except ImportError:
+    from typing_extensions import override
 
 import numpy as np
 import torch
