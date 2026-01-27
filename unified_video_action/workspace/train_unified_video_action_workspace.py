@@ -150,9 +150,20 @@ class TrainUnifiedVideoActionWorkspace(BaseWorkspace):
             # compute normalizer on the main process and save to disk
             normalizer_path = os.path.join(self.output_dir, "normalizer.pkl")
             if accelerator.is_main_process:
-                normalizer = dataset.get_normalizer()
-                pickle.dump(normalizer, open(normalizer_path, "wb"))
+                precomputed_path = cfg.task.get("precomputed_normalizer_path", None)
+                if precomputed_path is not None and os.path.exists(precomputed_path):
+                    # Copy precomputed normalizer instead of recomputing
+                    import shutil
+                    shutil.copy(precomputed_path, normalizer_path)
+                    print(f"Copied precomputed normalizer from {precomputed_path} and saved to {normalizer_path}")
+                else:
+                    normalizer = dataset.get_normalizer()
+                    pickle.dump(normalizer, open(normalizer_path, "wb"))
+                    print(f"Computed and saved normalizer to {normalizer_path}")
 
+            # Synchronize all processes - wait for main process to finish normalizer computation
+            # This must be done BEFORE accelerator.prepare() to avoid NCCL timeout
+            accelerator.wait_for_everyone()
 
         # configure lr scheduler
         self.lr_scheduler = get_scheduler(
@@ -179,10 +190,12 @@ class TrainUnifiedVideoActionWorkspace(BaseWorkspace):
             ema = hydra.utils.instantiate(cfg.ema, model=self.ema_model)
 
         # configure env
+        # Note: Use OmegaConf.select to properly check for null values, as
+        # `cfg.task.env_runner is not None` doesn't work correctly with OmegaConf
+        env_runners = None
         if (
             cfg.model.policy.action_model_params.predict_action
-            and "env_runner" in cfg.task
-            and cfg.task.env_runner is not None
+            and OmegaConf.select(cfg, "task.env_runner._target_") is not None
         ):
             env_runners = load_env_runner(cfg, self.output_dir)
 
@@ -295,7 +308,7 @@ class TrainUnifiedVideoActionWorkspace(BaseWorkspace):
                         with torch.autocast(device_type="cuda", dtype=torch.bfloat16): # You might need to change the device_type to str(device) for other versions of torch
                             raw_loss, (loss_diffusion, loss_action) = self.model(batch)
                     else:
-                        raw_loss, (loss_diffusion, loss_action) = self.model(batch)
+                        raw_loss, (loss_diffusion, loss_action) = self.model(batch) # calls UnifiedVideoActionPolicy.forward() -> UnifiedVideoActionPolicy.compute_loss()
 
                     accelerator.backward(raw_loss)
 
