@@ -6,6 +6,8 @@ to provide data in the format expected by UVA for video generation training.
 """
 
 from typing import Dict
+
+from tqdm import tqdm
 import torch
 from torch.utils.data import Subset
 import numpy as np
@@ -166,8 +168,7 @@ class NymeriaUVADataset(BaseImageDataset):
         action_dim = 6 + 23 * 6  # 144
         all_actions = []
 
-        print(f"Collecting all actions from {len(self)} samples for normalizer fitting...")
-        for idx in range(len(self)):
+        for idx in tqdm(range(len(self)), desc="Looping through all training samples to collect actions"):
             sample = self[idx]
             # sample['action'] has shape (T, 144), we flatten to (T*144) or keep per-timestep
             # For normalizer, we want all action values, so concatenate all timesteps
