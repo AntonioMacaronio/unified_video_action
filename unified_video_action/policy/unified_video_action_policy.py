@@ -384,6 +384,7 @@ class UnifiedVideoActionPolicy(BaseImagePolicy):
                 text_latents = batch["language_latents"]
             else:
                 raise NotImplementedError
+        print(text_latents.shape)
 
         nactions = normalize_action(
             normalizer=self.normalizer,
@@ -407,7 +408,7 @@ class UnifiedVideoActionPolicy(BaseImagePolicy):
         )
 
         # out of T frames, we take the first half as condition, and the second half as input
-        # generate latents with frozen vae model (torch.no_grad())
+        # generate latents with frozen vae model called KL-VAE or kl16 (torch.no_grad())
         # c = latent of first T/2 frames
         # z = latent of second T/2 frames
         # x = second T/2 frames as original images
