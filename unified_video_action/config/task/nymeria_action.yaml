@@ -29,5 +29,8 @@ dataset:
   num_datapoints: -1  # Use all datapoints by default
   text_embeddings_path: /nfs/antzhan/nymeria/hdf5/text_embeddings.pkl  # Precomputed CLIP embeddings
 
+# Path to precomputed normalizer.pkl to skip computation (set to skip long normalizer computation)
+precomputed_normalizer_path: null
+
 # No env_runner needed (no simulator for policy evaluation)
 env_runner: null
